@@ -9,10 +9,11 @@
 #include "protocol.h"
 
 #ifndef CAN_RX_PIN
-#error "Set CAN_RX_PIN / CAN_TX_PIN in platformio.ini for your shield version"
+#error "Set CAN_RX_PIN / CAN_TX_PIN in platformio.ini"
 #endif
 
 constexpr int LED_PIN = 26;
+constexpr int CAN_LOOPBACK_PIN = 33;  // transceiver LBK, active HIGH: bus is cut off while set
 constexpr uint32_t CAN_IDLE_TIMEOUT_MS = 500;    // no traffic this long -> car is off, go to sleep
 constexpr uint64_t SLEEP_PERIOD_US = 6000000ULL; // wake every 6s to check for traffic again
 
@@ -54,6 +55,8 @@ static void forward(const twai_message_t &m) {
 
 void setup() {
   Serial.begin(115200);
+  pinMode(CAN_LOOPBACK_PIN, OUTPUT);
+  digitalWrite(CAN_LOOPBACK_PIN, LOW);
   pinMode(LED_PIN, OUTPUT);
   digitalWrite(LED_PIN, HIGH);
 
