@@ -12,10 +12,11 @@ Inspired by and built on the same hardware as [MrDIY's CANaBus](https://gitlab.c
 ## Layout
 
 ```
-lib/protocol/          CanFrame: the ESP-NOW wire format shared by bridge and gadgets
+lib/protocol/          CanFrame + decode_frame(): the ESP-NOW wire format shared by bridge and gadgets
 src/bridge/            CAN (TWAI, listen-only, 500 kbps) -> ESP-NOW broadcast
 src/gadget_sample/     minimal gadget: prints received frames; copy to start a new one
-platformio.ini         one env per firmware
+test/test_protocol/    host-side unit tests for the protocol
+platformio.ini         one env per firmware, plus `native` for tests
 ```
 
 ## Build & flash
@@ -26,6 +27,7 @@ Requires [PlatformIO](https://platformio.org/install/cli).
 pio run                                  # build everything
 pio run -e bridge -t upload -t monitor   # flash + watch the bridge
 pio run -e gadget_sample -t upload -t monitor
+pio test -e native                       # unit tests, runs on your machine
 ```
 
 The bridge prints its `mesh_id` at boot. Put it in a gadget's `MESH_ID` build flag so the gadget ignores other bridges (`0` accepts any).
@@ -34,7 +36,8 @@ The bridge prints its `mesh_id` at boot. Put it in a gadget's `MESH_ID` build fl
 
 - The bridge is **listen-only** and never writes to the bus.
 - After 500 ms with no CAN traffic (car off) the bridge deep-sleeps and wakes every 6 s to check again, so it doesn't drain the 12 V battery.
-- `CanFrame` is packed (18 bytes) and **not** wire-compatible with CANaBus gadgets. Changing it means reflashing every device.
+- `CanFrame` is packed (20 bytes, starts with a magic byte and a version) and **not** wire-compatible with CANaBus gadgets. Changing it means bumping `FRAME_VERSION` and reflashing every device.
+- The bridge prints `dropped: ...` counts once a second if any frames are lost (ESP-NOW send queue full, or the CAN receive queue overflowing).
 - Bridge and gadgets share ESP-NOW channel 1 (`ESPNOW_CHANNEL`).
 
 ## Adding a gadget
@@ -42,3 +45,5 @@ The bridge prints its `mesh_id` at boot. Put it in a gadget's `MESH_ID` build fl
 1. Copy `src/gadget_sample/` to `src/gadget_<name>/`.
 2. Add an `[env:gadget_<name>]` with `build_src_filter = +<gadget_<name>/>`.
 3. Replace `on_frame()` with your logic, keyed on `f.can_id`.
+
+See [Agents.md](Agents.md) for the project rules.

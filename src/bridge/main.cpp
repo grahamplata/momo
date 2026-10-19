@@ -20,6 +20,7 @@ constexpr uint64_t SLEEP_PERIOD_US = 6000000ULL; // wake every 6s to check for t
 static const uint8_t BROADCAST[6] = {0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF};
 static uint32_t mesh_id;
 static uint32_t last_rx_ms;
+static uint32_t send_failures;
 
 static bool init_espnow() {
   WiFi.mode(WIFI_STA);
@@ -49,8 +50,21 @@ static void forward(const twai_message_t &m) {
   frame.extd = m.extd;
   frame.len = m.data_length_code > 8 ? 8 : m.data_length_code;
   memcpy(frame.data, m.data, frame.len);
-  // shortcut: send errors (ESP-NOW queue full on a busy bus) drop the frame; add a ring buffer if gadgets miss frames.
-  esp_now_send(BROADCAST, (const uint8_t *)&frame, sizeof(frame));
+  // shortcut: frames are dropped when ESP-NOW's send queue is full (counted, see report_drops);
+  // pack several CAN frames per packet if the counts are high on your car.
+  if (esp_now_send(BROADCAST, (const uint8_t *)&frame, sizeof(frame)) != ESP_OK) send_failures++;
+}
+
+// Prints cumulative drop counts once a second, only once something has been lost.
+static void report_drops() {
+  static uint32_t last_report_ms;
+  if (millis() - last_report_ms < 1000) return;
+  last_report_ms = millis();
+  twai_status_info_t s;
+  if (twai_get_status_info(&s) != ESP_OK) return;
+  if (send_failures || s.rx_missed_count || s.rx_overrun_count)
+    Serial.printf("dropped: espnow=%lu can_queue=%lu can_overrun=%lu\n", (unsigned long)send_failures,
+                  (unsigned long)s.rx_missed_count, (unsigned long)s.rx_overrun_count);
 }
 
 void setup() {
@@ -73,10 +87,11 @@ void setup() {
 
 void loop() {
   twai_message_t m;
-  while (twai_receive(&m, pdMS_TO_TICKS(100)) == ESP_OK) {
+  if (twai_receive(&m, pdMS_TO_TICKS(100)) == ESP_OK) {
     forward(m);
     last_rx_ms = millis();
   }
+  report_drops();
 
   if (millis() - last_rx_ms > CAN_IDLE_TIMEOUT_MS) {
     Serial.println("bus idle, sleeping");
