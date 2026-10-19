@@ -4,7 +4,7 @@ Rules for anyone (human or agent) changing this repo. See [README.md](README.md)
 
 ## Project
 
-A **bridge** (ESP32 DevKit V1 + MrDIY CAN shield v1.3) listens to a car's CAN bus and broadcasts every frame over ESP-NOW. **Gadgets** are ESP32s that receive those frames and act on the CAN IDs they care about. Inspired by [CANaBus](https://gitlab.com/MrDIYca/canabus), but not wire-compatible with it.
+A **bridge** (ESP32 DevKit V1 + MrDIY CAN shield v1.3) listens to a car's CAN bus and broadcasts every frame over ESP-NOW. **Gadgets** are ESP32s that receive those frames and act on the CAN IDs they care about.
 
 Expected load: one car, 500 kbps bus, roughly 1,000–3,000 frames/s while driving.
 
